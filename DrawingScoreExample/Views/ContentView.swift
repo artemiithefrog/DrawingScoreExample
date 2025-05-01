@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var canvasSize: CGSize = .zero
     @State private var progressValue: Double = 0.0
     @State private var lastUpdateTime: Date = Date()
+    @State private var outsideProgressValue: Double = 0.0
 
     var body: some View {
         GeometryReader { geometry in
@@ -47,9 +48,8 @@ struct ContentView: View {
 
                         VStack {
                             VStack(spacing: 8) {
-                                ProgressView(value: progressValue)
-                                    .progressViewStyle(CustomProgressViewStyle())
-                                    .frame(width: canvasWidth - horizontalPadding * 2)
+                                CustomProgressBar(insideProgress: progressValue, outsideProgress: outsideProgressValue)
+                                    .frame(width: canvasWidth - horizontalPadding * 2, height: 8)
                                 
                                 Text("Coverage: \(Int(score))%")
                                     .font(.system(size: 14))
@@ -138,35 +138,45 @@ struct ContentView: View {
 
         let referenceImage = ImageScorer.generateReferenceImage(size: targetSize)
 
-        let newScore = ImageScorer.calculateCoverageInsideShape(
+        let (insideScore, outsideScore) = ImageScorer.calculateCoverage(
             drawing: processedDrawingImage,
             reference: referenceImage
         )
 
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.3)) {
-                self.score = newScore
-                self.progressValue = newScore / 100.0
+                self.score = insideScore
+                self.progressValue = insideScore / 100.0
+                self.outsideProgressValue = outsideScore / 100.0
             }
         }
     }
 }
 
-struct CustomProgressViewStyle: ProgressViewStyle {
-    func makeBody(configuration: Configuration) -> some View {
+struct CustomProgressBar: View {
+    let insideProgress: Double
+    let outsideProgress: Double
+    
+    var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
                     .cornerRadius(4)
                 
-                Rectangle()
-                    .fill(Color.green)
-                    .cornerRadius(4)
-                    .frame(width: geometry.size.width * CGFloat(configuration.fractionCompleted ?? 0))
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.green)
+                        .frame(width: min(geometry.size.width * CGFloat(insideProgress), geometry.size.width))
+                    
+                    Rectangle()
+                        .fill(Color.red)
+                        .frame(width: min(geometry.size.width * CGFloat(outsideProgress), 
+                                        max(0, geometry.size.width - geometry.size.width * CGFloat(insideProgress))))
+                }
+                .cornerRadius(4)
             }
         }
-        .frame(height: 8)
     }
 }
 
@@ -231,16 +241,17 @@ class ImageScorer {
         }
     }
 
-    static func calculateCoverageInsideShape(drawing: UIImage, reference: UIImage) -> Double {
+    static func calculateCoverage(drawing: UIImage, reference: UIImage) -> (Double, Double) {
         guard let drawingMask = createBinaryMask(from: drawing),
               let referenceMask = createBinaryMask(from: reference),
               drawing.size == reference.size else {
-            return 0
+            return (0, 0)
         }
 
         let totalPixels = referenceMask.count
         var shapePixelCount = 0
         var coveredPixels = 0
+        var outsidePixels = 0
 
         for i in 0..<totalPixels {
             if referenceMask[i] {
@@ -248,13 +259,20 @@ class ImageScorer {
                 if drawingMask[i] {
                     coveredPixels += 1
                 }
+            } else if drawingMask[i] {
+                outsidePixels += 1
             }
         }
 
-        guard shapePixelCount > 0 else { return 0 }
+        guard shapePixelCount > 0 else { return (0, 0) }
 
-        let coverage = Double(coveredPixels) / Double(shapePixelCount) * 100
-        return min(coverage, 100)
+        // Calculate inside coverage (green)
+        let insideCoverage = Double(coveredPixels) / Double(shapePixelCount) * 100
+        
+        // Calculate outside coverage (red) based on the same pixel ratio
+        let outsideCoverage = Double(outsidePixels) / Double(shapePixelCount) * 100
+
+        return (min(insideCoverage, 100), min(outsideCoverage, 100))
     }
 
     private static func createBinaryMask(from image: UIImage) -> [Bool]? {

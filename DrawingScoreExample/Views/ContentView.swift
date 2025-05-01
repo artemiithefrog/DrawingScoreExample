@@ -22,6 +22,8 @@ struct ContentView: View {
     @State private var lastStrokeIndex: Int?
     @State private var isShaking: Bool = false
     @State private var isFlashing: Bool = false
+    @State private var showCompletionAlert: Bool = false
+    @State private var showCompletionButton: Bool = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -101,13 +103,68 @@ struct ContentView: View {
                             }
                     }
                 }
+                
+                if showCompletionButton {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                showCompletionAlert = true
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 36, height: 36)
+                                        .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                    
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            .buttonStyle(PlainButtonStyle())
+                            .allowsHitTesting(true)
+                            .padding(.trailing, 20)
+                        }
+                        Spacer()
+                    }
+                    .frame(width: safeWidth)
+                    .padding(.top, 20)
+                }
             }
             .edgesIgnoringSafeArea(.all)
+            .alert("Drawing Complete!", isPresented: $showCompletionAlert) {
+                Button("Start Over") {
+                    // Reset everything
+                    canvasView.drawing = PKDrawing()
+                    score = 0
+                    progressValue = 0
+                    outsideProgressValue = 0
+                    lastStrokeIndex = nil
+                    showCompletionButton = false
+                    isDrawing = false
+                    timer?.invalidate()
+                    timer = nil
+                }
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("You have completed the test drawing!")
+            }
         }
         .edgesIgnoringSafeArea(.all)
     }
     
     private func calculateScore() {
+        guard !canvasView.drawing.strokes.isEmpty else {
+            DispatchQueue.main.async {
+                self.score = 0
+                self.progressValue = 0
+                self.outsideProgressValue = 0
+            }
+            return
+        }
+
         let targetSize = canvasSize
         let scale = UIScreen.main.scale
 
@@ -209,6 +266,10 @@ struct ContentView: View {
                             self.outsideProgressValue = outsideScore / 100.0
                         }
                     }
+                }
+                
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    showCompletionButton = insideScore >= 95
                 }
             }
         }

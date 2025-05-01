@@ -19,6 +19,9 @@ struct ContentView: View {
     @State private var progressValue: Double = 0.0
     @State private var lastUpdateTime: Date = Date()
     @State private var outsideProgressValue: Double = 0.0
+    @State private var lastStrokeIndex: Int?
+    @State private var isShaking: Bool = false
+    @State private var isFlashing: Bool = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -48,7 +51,10 @@ struct ContentView: View {
 
                         VStack {
                             VStack(spacing: 8) {
-                                CustomProgressBar(insideProgress: progressValue, outsideProgress: outsideProgressValue)
+                                CustomProgressBar(insideProgress: progressValue, 
+                                                outsideProgress: outsideProgressValue,
+                                                isShaking: isShaking,
+                                                isFlashing: isFlashing)
                                     .frame(width: canvasWidth - horizontalPadding * 2, height: 8)
                                 
                                 Text("Coverage: \(Int(score))%")
@@ -69,7 +75,8 @@ struct ContentView: View {
                         DrawingView(canvasView: $canvasView,
                                   score: $score,
                                   isDrawing: $isDrawing,
-                                  brushWidth: $brushWidth)
+                                  brushWidth: $brushWidth,
+                                  lastStrokeIndex: $lastStrokeIndex)
                             .frame(width: canvasWidth, height: safeHeight)
                             .onAppear {
                                 self.canvasSize = CGSize(width: canvasWidth, height: safeHeight)
@@ -147,7 +154,32 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.3)) {
                 self.score = insideScore
                 self.progressValue = insideScore / 100.0
-                self.outsideProgressValue = outsideScore / 100.0
+
+                if outsideScore > 50, let index = lastStrokeIndex {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isShaking = true
+                        isFlashing = true
+                    }
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        var strokes = canvasView.drawing.strokes
+                        if index < strokes.count {
+                            strokes.remove(at: index)
+                            canvasView.drawing = PKDrawing(strokes: strokes)
+                            lastStrokeIndex = nil
+
+                            withAnimation(nil) {
+                                isShaking = false
+                                isFlashing = false
+                                self.outsideProgressValue = 0
+                            }
+                        }
+                    }
+                } else {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        self.outsideProgressValue = outsideScore / 100.0
+                    }
+                }
             }
         }
     }
@@ -156,6 +188,9 @@ struct ContentView: View {
 struct CustomProgressBar: View {
     let insideProgress: Double
     let outsideProgress: Double
+    let isShaking: Bool
+    let isFlashing: Bool
+    @State private var shakeOffset: CGFloat = 0
     
     var body: some View {
         GeometryReader { geometry in
@@ -164,17 +199,45 @@ struct CustomProgressBar: View {
                     .fill(Color.gray.opacity(0.3))
                     .cornerRadius(4)
                 
-                HStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Color.green)
-                        .frame(width: min(geometry.size.width * CGFloat(insideProgress), geometry.size.width))
-                    
+                if isFlashing {
                     Rectangle()
                         .fill(Color.red)
-                        .frame(width: min(geometry.size.width * CGFloat(outsideProgress), 
-                                        max(0, geometry.size.width - geometry.size.width * CGFloat(insideProgress))))
+                        .frame(width: geometry.size.width)
+                        .cornerRadius(4)
+                } else {
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(Color.green)
+                            .frame(width: min(geometry.size.width * CGFloat(insideProgress), geometry.size.width))
+                        
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: min(geometry.size.width * CGFloat(outsideProgress), 
+                                            max(0, geometry.size.width - geometry.size.width * CGFloat(insideProgress))))
+                    }
+                    .cornerRadius(4)
                 }
-                .cornerRadius(4)
+            }
+            .offset(x: shakeOffset)
+            .shadow(color: isFlashing ? .red.opacity(0.5) : .clear, radius: 4, x: 0, y: 2)
+            .onChange(of: isShaking) { newValue in
+                if newValue {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.3, blendDuration: 0.3).repeatCount(3)) {
+                        shakeOffset = 10
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.3, blendDuration: 0.3).repeatCount(3)) {
+                            shakeOffset = -10
+                        }
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.3, blendDuration: 0.3).repeatCount(3)) {
+                            shakeOffset = 0
+                        }
+                    }
+                } else {
+                    shakeOffset = 0
+                }
             }
         }
     }
@@ -185,6 +248,7 @@ struct DrawingView: UIViewRepresentable {
     @Binding var score: Double
     @Binding var isDrawing: Bool
     @Binding var brushWidth: CGFloat
+    @Binding var lastStrokeIndex: Int?
     
     func makeUIView(context: Context) -> PKCanvasView {
         canvasView.drawingPolicy = .anyInput
@@ -214,6 +278,7 @@ struct DrawingView: UIViewRepresentable {
         
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             parent.isDrawing = true
+            parent.lastStrokeIndex = canvasView.drawing.strokes.count - 1
         }
     }
 }
@@ -266,10 +331,8 @@ class ImageScorer {
 
         guard shapePixelCount > 0 else { return (0, 0) }
 
-        // Calculate inside coverage (green)
         let insideCoverage = Double(coveredPixels) / Double(shapePixelCount) * 100
-        
-        // Calculate outside coverage (red) based on the same pixel ratio
+
         let outsideCoverage = Double(outsidePixels) / Double(shapePixelCount) * 100
 
         return (min(insideCoverage, 100), min(outsideCoverage, 100))

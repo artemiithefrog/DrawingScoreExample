@@ -152,32 +152,62 @@ struct ContentView: View {
 
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.3)) {
-                self.score = insideScore
-                self.progressValue = insideScore / 100.0
-
-                if outsideScore > 50, let index = lastStrokeIndex {
-                    withAnimation(.easeInOut(duration: 0.1)) {
-                        isShaking = true
-                        isFlashing = true
-                    }
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        var strokes = canvasView.drawing.strokes
-                        if index < strokes.count {
-                            strokes.remove(at: index)
-                            canvasView.drawing = PKDrawing(strokes: strokes)
-                            lastStrokeIndex = nil
-
-                            withAnimation(nil) {
-                                isShaking = false
-                                isFlashing = false
-                                self.outsideProgressValue = 0
+                if canvasView.drawing.strokes.count == 1 {
+                    if let firstStroke = canvasView.drawing.strokes.first {
+                        let points = firstStroke.path
+                        var isInsideTarget = false
+                        
+                        for point in points {
+                            let location = point.location
+                            let starSize: CGFloat = 250
+                            let originX = (targetSize.width - starSize) / 2
+                            let originY = (targetSize.height - starSize) / 2
+                            let targetRect = CGRect(x: originX, y: originY, width: starSize, height: starSize)
+                            
+                            if targetRect.contains(location) {
+                                isInsideTarget = true
+                                break
                             }
+                        }
+                        
+                        if isInsideTarget {
+                            self.score = insideScore
+                            self.progressValue = insideScore / 100.0
+                            self.outsideProgressValue = 0
+                        } else {
+                            self.score = 0
+                            self.progressValue = 0
+                            self.outsideProgressValue = outsideScore / 100.0
                         }
                     }
                 } else {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        self.outsideProgressValue = outsideScore / 100.0
+                    self.score = insideScore
+                    self.progressValue = insideScore / 100.0
+                    
+                    if outsideScore > 50, let index = lastStrokeIndex {
+                        withAnimation(.easeInOut(duration: 0.1)) {
+                            isShaking = true
+                            isFlashing = true
+                        }
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            var strokes = canvasView.drawing.strokes
+                            if index < strokes.count {
+                                strokes.remove(at: index)
+                                canvasView.drawing = PKDrawing(strokes: strokes)
+                                lastStrokeIndex = nil
+                                
+                                withAnimation(nil) {
+                                    isShaking = false
+                                    isFlashing = false
+                                    self.outsideProgressValue = 0
+                                }
+                            }
+                        }
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            self.outsideProgressValue = outsideScore / 100.0
+                        }
                     }
                 }
             }
@@ -208,12 +238,17 @@ struct CustomProgressBar: View {
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(Color.green)
-                            .frame(width: min(geometry.size.width * CGFloat(insideProgress), geometry.size.width))
+                            .frame(width: min(
+                                geometry.size.width * CGFloat(insideProgress) * (1 - CGFloat(outsideProgress)),
+                                geometry.size.width * (1 - CGFloat(outsideProgress))
+                            ))
                         
                         Rectangle()
                             .fill(Color.red)
-                            .frame(width: min(geometry.size.width * CGFloat(outsideProgress), 
-                                            max(0, geometry.size.width - geometry.size.width * CGFloat(insideProgress))))
+                            .frame(width: min(
+                                geometry.size.width * CGFloat(outsideProgress),
+                                geometry.size.width
+                            ))
                     }
                     .cornerRadius(4)
                 }

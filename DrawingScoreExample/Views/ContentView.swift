@@ -16,12 +16,15 @@ struct ContentView: View {
     @State private var timer: Timer?
     @State private var brushWidth: CGFloat = 10.0
     @State private var canvasSize: CGSize = .zero
+    @State private var progressValue: Double = 0.0
+    @State private var lastUpdateTime: Date = Date()
 
     var body: some View {
         GeometryReader { geometry in
             let safeWidth = geometry.size.width
             let safeHeight = geometry.size.height
             let canvasWidth = safeWidth * 0.75
+            let horizontalPadding: CGFloat = 20
 
             ZStack {
                 Color.gray.opacity(0.1)
@@ -42,6 +45,21 @@ struct ContentView: View {
                             .frame(width: canvasWidth, height: safeHeight)
                             .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
 
+                        VStack {
+                            VStack(spacing: 8) {
+                                ProgressView(value: progressValue)
+                                    .progressViewStyle(CustomProgressViewStyle())
+                                    .frame(width: canvasWidth - horizontalPadding * 2)
+                                
+                                Text("Coverage: \(Int(score))%")
+                                    .font(.system(size: 14))
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.top, 20)
+                            
+                            Spacer()
+                        }
+
                         Image(systemName: "star.fill")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -59,9 +77,13 @@ struct ContentView: View {
                             .onChange(of: isDrawing) { newValue in
                                 if newValue {
                                     timer?.invalidate()
-                                    timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
-                                        DispatchQueue.main.async {
-                                            calculateScore()
+                                    timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+                                        let now = Date()
+                                        if now.timeIntervalSince(lastUpdateTime) >= 0.5 {
+                                            DispatchQueue.main.async {
+                                                calculateScore()
+                                                lastUpdateTime = now
+                                            }
                                         }
                                     }
                                 } else {
@@ -70,16 +92,6 @@ struct ContentView: View {
                                     calculateScore()
                                 }
                             }
-
-                        VStack {
-                            Text("Coverage: \(Int(score))%")
-                                .font(.system(size: 14))
-                                .fontWeight(.medium)
-                                .background(Color.white.opacity(0.8))
-                                .cornerRadius(8)
-                                .padding(.top, 20)
-                            Spacer()
-                        }
                     }
                 }
             }
@@ -132,11 +144,31 @@ struct ContentView: View {
         )
 
         DispatchQueue.main.async {
-            self.score = newScore
+            withAnimation(.easeInOut(duration: 0.3)) {
+                self.score = newScore
+                self.progressValue = newScore / 100.0
+            }
         }
     }
 }
 
+struct CustomProgressViewStyle: ProgressViewStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .cornerRadius(4)
+                
+                Rectangle()
+                    .fill(Color.green)
+                    .cornerRadius(4)
+                    .frame(width: geometry.size.width * CGFloat(configuration.fractionCompleted ?? 0))
+            }
+        }
+        .frame(height: 8)
+    }
+}
 
 struct DrawingView: UIViewRepresentable {
     @Binding var canvasView: PKCanvasView

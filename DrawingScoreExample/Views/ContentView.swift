@@ -20,66 +20,72 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
             let safeWidth = geometry.size.width
-            let safeHeight = geometry.size.height - geometry.safeAreaInsets.top - geometry.safeAreaInsets.bottom
+            let safeHeight = geometry.size.height
+            let canvasWidth = safeWidth * 0.75
 
             ZStack {
-                Image(systemName: "star.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 250, height: 250)
-                    .foregroundColor(.blue)
+                Color.gray.opacity(0.1)
+                    .edgesIgnoringSafeArea(.all)
 
-                DrawingView(canvasView: $canvasView,
-                            score: $score,
-                            isDrawing: $isDrawing,
-                            brushWidth: $brushWidth)
-                    .frame(width: safeWidth, height: safeHeight)
-                    .onAppear {
-                        self.canvasSize = CGSize(width: safeWidth, height: safeHeight)
+                HStack(spacing: 20) {
+                    VStack {
+                        Slider(value: $brushWidth, in: 1...20, step: 1)
+                            .rotationEffect(.degrees(-90))
+                            .frame(width: 200)
+                            .padding(.top, 100)
                     }
-                    .onChange(of: isDrawing) { newValue in
-                        if newValue {
-                            timer?.invalidate()
-                            timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
-                                DispatchQueue.main.async {
+                    .frame(width: 50)
+
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: canvasWidth, height: safeHeight)
+                            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+
+                        Image(systemName: "star.fill")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 250, height: 250)
+                            .foregroundColor(.blue)
+
+                        DrawingView(canvasView: $canvasView,
+                                  score: $score,
+                                  isDrawing: $isDrawing,
+                                  brushWidth: $brushWidth)
+                            .frame(width: canvasWidth, height: safeHeight)
+                            .onAppear {
+                                self.canvasSize = CGSize(width: canvasWidth, height: safeHeight)
+                            }
+                            .onChange(of: isDrawing) { newValue in
+                                if newValue {
+                                    timer?.invalidate()
+                                    timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
+                                        DispatchQueue.main.async {
+                                            calculateScore()
+                                        }
+                                    }
+                                } else {
+                                    timer?.invalidate()
+                                    timer = nil
                                     calculateScore()
                                 }
                             }
-                        } else {
-                            timer?.invalidate()
-                            timer = nil
-                            calculateScore()
+
+                        VStack {
+                            Text("Coverage: \(Int(score))%")
+                                .font(.system(size: 14))
+                                .fontWeight(.medium)
+                                .background(Color.white.opacity(0.8))
+                                .cornerRadius(8)
+                                .padding(.top, 20)
+                            Spacer()
                         }
                     }
-
-                VStack {
-                    Text("Coverage: \(Int(score))%")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .padding()
-                        .background(Color.white.opacity(0.8))
-                        .cornerRadius(10)
-                        .padding()
-                        .padding(.top)
-
-                    Spacer()
-
-                    VStack {
-                        Text("Brush Width: \(Int(brushWidth))")
-                            .font(.headline)
-                            .foregroundColor(.black)
-
-                        Slider(value: $brushWidth, in: 1...20, step: 1)
-                            .padding(.horizontal)
-                            .background(Color.white.opacity(0.8))
-                            .cornerRadius(10)
-                            .padding(.horizontal)
-                    }
-                    .padding(.bottom, 20)
                 }
             }
             .edgesIgnoringSafeArea(.all)
         }
+        .edgesIgnoringSafeArea(.all)
     }
     
     private func calculateScore() {
@@ -261,13 +267,3 @@ class ImageScorer {
         return mask
     }
 }
-
-extension UIImage {
-    func resized(to size: CGSize) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { _ in
-            self.draw(in: CGRect(origin: .zero, size: size))
-        }
-    }
-}
-

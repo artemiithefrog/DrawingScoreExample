@@ -105,8 +105,30 @@ class DrawingViewModel: ObservableObject {
                         }
                     }
                 } else {
-                    self.score = insideScore
-                    self.progressValue = insideScore / 100.0
+                    var hasInsideStroke = false
+                    for stroke in self.canvasView.drawing.strokes {
+                        let points = stroke.path
+                        let starSize: CGFloat = 250
+                        let originX = (targetSize.width - starSize) / 2
+                        let originY = (targetSize.height - starSize) / 2
+                        let targetRect = CGRect(x: originX, y: originY, width: starSize, height: starSize)
+                        
+                        for point in points {
+                            if targetRect.contains(point.location) {
+                                hasInsideStroke = true
+                                break
+                            }
+                        }
+                        if hasInsideStroke { break }
+                    }
+                    
+                    if hasInsideStroke {
+                        self.score = insideScore
+                        self.progressValue = insideScore / 100.0
+                    } else {
+                        self.score = 0
+                        self.progressValue = 0
+                    }
                     
                     if outsideScore > 50, let index = self.lastStrokeIndex {
                         withAnimation(.easeInOut(duration: 0.1)) {

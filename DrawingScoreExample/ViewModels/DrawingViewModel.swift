@@ -174,34 +174,41 @@ class DrawingViewModel: ObservableObject {
 
         updateButtonStates()
 
-        calculateScore()
+        print("Undo: Removed stroke, stack size: \(undoStack.count)")
     }
     
     func redo() {
         guard !undoStack.isEmpty else {
+            print("Redo: Stack is empty")
             updateButtonStates()
             return
         }
 
         var strokes = canvasView.drawing.strokes
-        strokes.append(undoStack.removeLast())
+        let stroke = undoStack.removeLast()
+        strokes.append(stroke)
+
+        let wasUndoneStrokes = hasUndoneStrokes
+        hasUndoneStrokes = false
+        
         canvasView.drawing = PKDrawing(strokes: strokes)
 
+        hasUndoneStrokes = wasUndoneStrokes
+
         updateButtonStates()
+
+        print("Redo: Added stroke back, remaining in stack: \(undoStack.count)")
 
         calculateScore()
     }
     
-    private func updateButtonStates() {
-        canUndo = !canvasView.drawing.strokes.isEmpty
-        canRedo = !undoStack.isEmpty
-    }
-    
     func clearUndoStack() {
         if hasUndoneStrokes {
+            print("Clearing undo stack, current size: \(undoStack.count)")
             undoStack.removeAll()
             hasUndoneStrokes = false
             updateButtonStates()
+            print("Undo stack cleared")
         }
     }
     
@@ -215,9 +222,19 @@ class DrawingViewModel: ObservableObject {
         isDrawing = false
         timer?.invalidate()
         timer = nil
-        
+
         undoStack.removeAll()
         hasUndoneStrokes = false
         updateButtonStates()
+        
+        print("Drawing reset, undo stack cleared")
+    }
+
+    private func updateButtonStates() {
+        DispatchQueue.main.async {
+            self.canUndo = !self.canvasView.drawing.strokes.isEmpty
+            self.canRedo = !self.undoStack.isEmpty
+            print("Button states updated - canUndo: \(self.canUndo), canRedo: \(self.canRedo)")
+        }
     }
 } 

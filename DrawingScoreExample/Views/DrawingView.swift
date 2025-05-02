@@ -32,6 +32,7 @@ struct DrawingView: UIViewRepresentable {
     
     class Coordinator: NSObject, PKCanvasViewDelegate {
         var parent: DrawingView
+        private var lastStrokeCount: Int = 0
         
         init(_ parent: DrawingView) {
             self.parent = parent
@@ -39,10 +40,19 @@ struct DrawingView: UIViewRepresentable {
         
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             parent.isDrawing = true
-            parent.lastStrokeIndex = canvasView.drawing.strokes.count - 1
-            parent.canUndo = !canvasView.drawing.strokes.isEmpty
-            parent.canRedo = false
-            parent.onStrokeAdded()
+            let currentStrokeCount = canvasView.drawing.strokes.count
+  
+            if currentStrokeCount > lastStrokeCount {
+                parent.lastStrokeIndex = currentStrokeCount - 1
+                parent.canUndo = true
+                parent.onStrokeAdded()
+            }
+            
+            lastStrokeCount = currentStrokeCount
+        }
+        
+        func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
+            parent.isDrawing = false
         }
     }
 } 

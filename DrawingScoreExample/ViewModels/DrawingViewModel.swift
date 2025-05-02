@@ -13,6 +13,11 @@ class DrawingViewModel: ObservableObject {
     @Published var isShaking: Bool = false
     @Published var isFlashing: Bool = false
     @Published var showCompletionButton: Bool = false
+
+    @Published var canUndo: Bool = false
+    @Published var canRedo: Bool = false
+    private var undoStack: [PKStroke] = []
+    private var hasUndoneStrokes: Bool = false
     
     private var timer: Timer?
     private var lastUpdateTime: Date = Date()
@@ -157,6 +162,49 @@ class DrawingViewModel: ObservableObject {
         calculateScore()
     }
     
+    func undo() {
+        guard let lastStroke = canvasView.drawing.strokes.last else { return }
+
+        var strokes = canvasView.drawing.strokes
+        strokes.removeLast()
+        canvasView.drawing = PKDrawing(strokes: strokes)
+
+        undoStack.append(lastStroke)
+        hasUndoneStrokes = true
+
+        updateButtonStates()
+
+        calculateScore()
+    }
+    
+    func redo() {
+        guard !undoStack.isEmpty else {
+            updateButtonStates()
+            return
+        }
+
+        var strokes = canvasView.drawing.strokes
+        strokes.append(undoStack.removeLast())
+        canvasView.drawing = PKDrawing(strokes: strokes)
+
+        updateButtonStates()
+
+        calculateScore()
+    }
+    
+    private func updateButtonStates() {
+        canUndo = !canvasView.drawing.strokes.isEmpty
+        canRedo = !undoStack.isEmpty
+    }
+    
+    func clearUndoStack() {
+        if hasUndoneStrokes {
+            undoStack.removeAll()
+            hasUndoneStrokes = false
+            updateButtonStates()
+        }
+    }
+    
     func resetDrawing() {
         canvasView.drawing = PKDrawing()
         score = 0
@@ -167,5 +215,9 @@ class DrawingViewModel: ObservableObject {
         isDrawing = false
         timer?.invalidate()
         timer = nil
+        
+        undoStack.removeAll()
+        hasUndoneStrokes = false
+        updateButtonStates()
     }
 } 

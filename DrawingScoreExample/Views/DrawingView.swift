@@ -7,6 +7,9 @@ struct DrawingView: UIViewRepresentable {
     @Binding var isDrawing: Bool
     @Binding var brushWidth: CGFloat
     @Binding var lastStrokeIndex: Int?
+    @Binding var canUndo: Bool
+    @Binding var canRedo: Bool
+    var onStrokeAdded: () -> Void
     
     func makeUIView(context: Context) -> PKCanvasView {
         canvasView.drawingPolicy = .anyInput
@@ -37,6 +40,9 @@ struct DrawingView: UIViewRepresentable {
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
             parent.isDrawing = true
             parent.lastStrokeIndex = canvasView.drawing.strokes.count - 1
+            parent.canUndo = !canvasView.drawing.strokes.isEmpty
+            parent.canRedo = false
+            parent.onStrokeAdded()
         }
     }
 } 

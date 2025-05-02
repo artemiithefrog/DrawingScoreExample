@@ -26,10 +26,21 @@ struct ContentView: View {
 
                 HStack(spacing: 20) {
                     VStack {
+                        UndoRedoButtons(
+                            canUndo: viewModel.canUndo,
+                            canRedo: viewModel.canRedo,
+                            onUndo: { viewModel.undo() },
+                            onRedo: { viewModel.redo() }
+                        )
+                        .padding(.top, 20)
+                        
+                        Spacer()
+                        
                         Slider(value: $viewModel.brushWidth, in: 1...20, step: 1)
                             .rotationEffect(.degrees(-90))
                             .frame(width: 200)
-                            .padding(.top, 100)
+                        
+                        Spacer()
                     }
                     .frame(width: 50)
 
@@ -62,7 +73,10 @@ struct ContentView: View {
                                   score: $viewModel.score,
                                   isDrawing: $viewModel.isDrawing,
                                   brushWidth: $viewModel.brushWidth,
-                                  lastStrokeIndex: $viewModel.lastStrokeIndex)
+                                  lastStrokeIndex: $viewModel.lastStrokeIndex,
+                                  canUndo: $viewModel.canUndo,
+                                  canRedo: $viewModel.canRedo,
+                                  onStrokeAdded: { viewModel.clearUndoStack() })
                             .frame(width: canvasWidth, height: safeHeight)
                             .onAppear {
                                 viewModel.canvasSize = CGSize(width: canvasWidth, height: safeHeight)

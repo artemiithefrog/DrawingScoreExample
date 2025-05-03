@@ -10,10 +10,11 @@ class ImageScorer {
             let ctx = context.cgContext
             ctx.setFillColor(UIColor.white.cgColor)
             ctx.fill(CGRect(origin: .zero, size: size))
-
-            let image = UIImage(systemName: "star.fill")!
+            
+            //            let image = UIImage(systemName: "star.fill")!
+            let image = UIImage(systemName: "arrow.right")!
                 .withTintColor(.black, renderingMode: .alwaysOriginal)
-
+            
             let starSize: CGFloat = 250
             let originX = (size.width - starSize) / 2
             let originY = (size.height - starSize) / 2
@@ -28,20 +29,30 @@ class ImageScorer {
               drawing.size == reference.size else {
             return (0, 0)
         }
+        
+        let width = Int(reference.size.width)
+        let height = Int(reference.size.height)
 
-        let totalPixels = referenceMask.count
+        let dilatedReferenceMask = dilateMask(referenceMask, width: width, height: height, iterations: 3)
+        
         var shapePixelCount = 0
         var coveredPixels = 0
         var outsidePixels = 0
-
-        for i in 0..<totalPixels {
-            if referenceMask[i] {
-                shapePixelCount += 1
-                if drawingMask[i] {
-                    coveredPixels += 1
+        
+        for y in 0..<height {
+            for x in 0..<width {
+                let index = y * width + x
+                
+                if dilatedReferenceMask[index] {
+                    shapePixelCount += 1
+                    if drawingMask[index] {
+                        coveredPixels += 1
+                    }
+                } else if drawingMask[index] {
+                    if !isNearShapeBoundary(x: x, y: y, referenceMask: referenceMask, width: width, height: height) {
+                        outsidePixels += 1
+                    }
                 }
-            } else if drawingMask[i] {
-                outsidePixels += 1
             }
         }
 
@@ -93,5 +104,76 @@ class ImageScorer {
         }
 
         return mask
+    }
+    
+    private static func dilateMask(_ mask: [Bool], width: Int, height: Int, iterations: Int) -> [Bool] {
+        var result = mask
+        
+        for _ in 0..<iterations {
+            var newResult = result
+            
+            for y in 0..<height {
+                for x in 0..<width {
+                    if result[y * width + x] {
+                        for dy in -2...2 {
+                            for dx in -2...2 {
+                                let nx = x + dx
+                                let ny = y + dy
+                                
+                                if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                                    newResult[ny * width + nx] = true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            result = newResult
+        }
+        
+        return result
+    }
+    
+    private static func isNearShapeBoundary(x: Int, y: Int, referenceMask: [Bool], width: Int, height: Int) -> Bool {
+        let searchRadius = 5
+        
+        for dy in -searchRadius...searchRadius {
+            for dx in -searchRadius...searchRadius {
+                let nx = x + dx
+                let ny = y + dy
+                
+                if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                    if referenceMask[ny * width + nx] {
+                        let isSignificant = checkSignificantPixel(x: nx, y: ny, referenceMask: referenceMask, width: width, height: height)
+                        if isSignificant {
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+        
+        return false
+    }
+    
+    private static func checkSignificantPixel(x: Int, y: Int, referenceMask: [Bool], width: Int, height: Int) -> Bool {
+        var connectedPixels = 0
+        let minConnectedPixels = 3
+        
+        for dy in -1...1 {
+            for dx in -1...1 {
+                let nx = x + dx
+                let ny = y + dy
+                
+                if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                    if referenceMask[ny * width + nx] {
+                        connectedPixels += 1
+                    }
+                }
+            }
+        }
+        
+        return connectedPixels >= minConnectedPixels
     }
 } 

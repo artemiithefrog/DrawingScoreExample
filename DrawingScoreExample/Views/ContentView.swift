@@ -63,7 +63,8 @@ struct ContentView: View {
                             Spacer()
                         }
 
-                        Image(systemName: "star.fill")
+//                        Image(systemName: "star.fill")
+                        Image(systemName: "arrow.right")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 250, height: 250)

@@ -11,8 +11,7 @@ class ImageScorer {
             ctx.setFillColor(UIColor.white.cgColor)
             ctx.fill(CGRect(origin: .zero, size: size))
             
-            //            let image = UIImage(systemName: "star.fill")!
-            let image = UIImage(systemName: "arrow.right")!
+            let image = UIImage(systemName: "star.fill")!
                 .withTintColor(.black, renderingMode: .alwaysOriginal)
             
             let starSize: CGFloat = 250
@@ -33,24 +32,34 @@ class ImageScorer {
         let width = Int(reference.size.width)
         let height = Int(reference.size.height)
 
-        let dilatedReferenceMask = dilateMask(referenceMask, width: width, height: height, iterations: 3)
+        let (shapeMask, boundaryMask) = createShapeAndBoundaryMasks(referenceMask, width: width, height: height)
         
         var shapePixelCount = 0
         var coveredPixels = 0
         var outsidePixels = 0
-        
-        for y in 0..<height {
-            for x in 0..<width {
-                let index = y * width + x
+        var hasOutsideDrawing = false
+
+        let chunkSize = 4
+        for y in stride(from: 0, to: height, by: chunkSize) {
+            for x in stride(from: 0, to: width, by: chunkSize) {
+                let endY = min(y + chunkSize, height)
+                let endX = min(x + chunkSize, width)
                 
-                if dilatedReferenceMask[index] {
-                    shapePixelCount += 1
-                    if drawingMask[index] {
-                        coveredPixels += 1
-                    }
-                } else if drawingMask[index] {
-                    if !isNearShapeBoundary(x: x, y: y, referenceMask: referenceMask, width: width, height: height) {
-                        outsidePixels += 1
+                for cy in y..<endY {
+                    for cx in x..<endX {
+                        let index = cy * width + cx
+                        
+                        if shapeMask[index] {
+                            shapePixelCount += 1
+                            if drawingMask[index] {
+                                coveredPixels += 1
+                            }
+                        } else if drawingMask[index] {
+                            if !boundaryMask[index] {
+                                outsidePixels += 1
+                                hasOutsideDrawing = true
+                            }
+                        }
                     }
                 }
             }
@@ -59,7 +68,7 @@ class ImageScorer {
         guard shapePixelCount > 0 else { return (0, 0) }
 
         let insideCoverage = Double(coveredPixels) / Double(shapePixelCount) * 100
-        let outsideCoverage = Double(outsidePixels) / Double(shapePixelCount) * 100
+        let outsideCoverage = hasOutsideDrawing ? Double(outsidePixels) / Double(shapePixelCount) * 100 : 0
 
         return (min(insideCoverage, 100), min(outsideCoverage, 100))
     }
@@ -74,12 +83,12 @@ class ImageScorer {
         let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
         
         guard let context = CGContext(data: nil,
-                                      width: width,
-                                      height: height,
-                                      bitsPerComponent: 8,
-                                      bytesPerRow: width * 4,
-                                      space: colorSpace,
-                                      bitmapInfo: bitmapInfo.rawValue) else { return nil }
+                                    width: width,
+                                    height: height,
+                                    bitsPerComponent: 8,
+                                    bytesPerRow: width * 4,
+                                    space: colorSpace,
+                                    bitmapInfo: bitmapInfo.rawValue) else { return nil }
         
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         
@@ -87,18 +96,26 @@ class ImageScorer {
         
         var mask = [Bool](repeating: false, count: width * height)
         
-        for y in 0..<height {
-            for x in 0..<width {
-                let pixelIndex = (y * width + x) * 4
-                let r = data[pixelIndex]
-                let g = data[pixelIndex + 1]
-                let b = data[pixelIndex + 2]
+        let chunkSize = 4
+        for y in stride(from: 0, to: height, by: chunkSize) {
+            for x in stride(from: 0, to: width, by: chunkSize) {
+                let endY = min(y + chunkSize, height)
+                let endX = min(x + chunkSize, width)
                 
-                let threshold: UInt8 = 200
-                let isBlack = r < threshold || g < threshold || b < threshold
-                
-                if isBlack {
-                    mask[y * width + x] = true
+                for cy in y..<endY {
+                    for cx in x..<endX {
+                        let pixelIndex = (cy * width + cx) * 4
+                        let r = data[pixelIndex]
+                        let g = data[pixelIndex + 1]
+                        let b = data[pixelIndex + 2]
+                        
+                        let threshold: UInt8 = 200
+                        let isBlack = r < threshold || g < threshold || b < threshold
+                        
+                        if isBlack {
+                            mask[cy * width + cx] = true
+                        }
+                    }
                 }
             }
         }
@@ -106,74 +123,73 @@ class ImageScorer {
         return mask
     }
     
-    private static func dilateMask(_ mask: [Bool], width: Int, height: Int, iterations: Int) -> [Bool] {
-        var result = mask
+    private static func createShapeAndBoundaryMasks(_ mask: [Bool], width: Int, height: Int) -> ([Bool], [Bool]) {
+        var shapeMask = mask
+        var boundaryMask = [Bool](repeating: false, count: width * height)
         
-        for _ in 0..<iterations {
-            var newResult = result
-            
-            for y in 0..<height {
-                for x in 0..<width {
-                    if result[y * width + x] {
-                        for dy in -2...2 {
-                            for dx in -2...2 {
-                                let nx = x + dx
-                                let ny = y + dy
-                                
-                                if nx >= 0 && nx < width && ny >= 0 && ny < height {
-                                    newResult[ny * width + nx] = true
+        let chunkSize = 4
+        for y in stride(from: 0, to: height, by: chunkSize) {
+            for x in stride(from: 0, to: width, by: chunkSize) {
+                let endY = min(y + chunkSize, height)
+                let endX = min(x + chunkSize, width)
+                
+                for cy in y..<endY {
+                    for cx in x..<endX {
+                        let index = cy * width + cx
+                        if mask[index] {
+                            var isBoundary = false
+                            for dy in -1...1 {
+                                for dx in -1...1 {
+                                    let nx = cx + dx
+                                    let ny = cy + dy
+                                    
+                                    if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                                        if !mask[ny * width + nx] {
+                                            isBoundary = true
+                                            break
+                                        }
+                                    }
+                                }
+                                if isBoundary { break }
+                            }
+                            
+                            if isBoundary {
+                                boundaryMask[index] = true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for y in stride(from: 0, to: height, by: chunkSize) {
+            for x in stride(from: 0, to: width, by: chunkSize) {
+                let endY = min(y + chunkSize, height)
+                let endX = min(x + chunkSize, width)
+                
+                for cy in y..<endY {
+                    for cx in x..<endX {
+                        let index = cy * width + cx
+                        if boundaryMask[index] {
+                            for dy in -2...2 {
+                                for dx in -2...2 {
+                                    let nx = cx + dx
+                                    let ny = cy + dy
+                                    
+                                    if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                                        let neighborIndex = ny * width + nx
+                                        if !shapeMask[neighborIndex] {
+                                            shapeMask[neighborIndex] = true
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            
-            result = newResult
         }
         
-        return result
-    }
-    
-    private static func isNearShapeBoundary(x: Int, y: Int, referenceMask: [Bool], width: Int, height: Int) -> Bool {
-        let searchRadius = 5
-        
-        for dy in -searchRadius...searchRadius {
-            for dx in -searchRadius...searchRadius {
-                let nx = x + dx
-                let ny = y + dy
-                
-                if nx >= 0 && nx < width && ny >= 0 && ny < height {
-                    if referenceMask[ny * width + nx] {
-                        let isSignificant = checkSignificantPixel(x: nx, y: ny, referenceMask: referenceMask, width: width, height: height)
-                        if isSignificant {
-                            return true
-                        }
-                    }
-                }
-            }
-        }
-        
-        return false
-    }
-    
-    private static func checkSignificantPixel(x: Int, y: Int, referenceMask: [Bool], width: Int, height: Int) -> Bool {
-        var connectedPixels = 0
-        let minConnectedPixels = 3
-        
-        for dy in -1...1 {
-            for dx in -1...1 {
-                let nx = x + dx
-                let ny = y + dy
-                
-                if nx >= 0 && nx < width && ny >= 0 && ny < height {
-                    if referenceMask[ny * width + nx] {
-                        connectedPixels += 1
-                    }
-                }
-            }
-        }
-        
-        return connectedPixels >= minConnectedPixels
+        return (shapeMask, boundaryMask)
     }
 } 

@@ -130,7 +130,7 @@ class DrawingViewModel: ObservableObject {
                         self.progressValue = 0
                     }
                     
-                    if outsideScore > 50, let index = self.lastStrokeIndex {
+                    if outsideScore > 30, let index = self.lastStrokeIndex {
                         withAnimation(.easeInOut(duration: 0.1)) {
                             self.isShaking = true
                             self.isFlashing = true
@@ -158,7 +158,7 @@ class DrawingViewModel: ObservableObject {
                 }
                 
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    self.showCompletionButton = insideScore >= 95
+                    self.showCompletionButton = insideScore >= 75
                 }
             }
         }

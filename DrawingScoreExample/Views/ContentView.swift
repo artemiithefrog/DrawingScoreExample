@@ -63,11 +63,13 @@ struct ContentView: View {
                             Spacer()
                         }
 
-                        Image(systemName: "star.fill")
+                        Image(systemName: viewModel.currentImage.name)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 250, height: 250)
                             .foregroundColor(.blue)
+                            .offset(x: canvasWidth * viewModel.currentImage.offset.x,
+                                   y: safeHeight * viewModel.currentImage.offset.y)
 
                         DrawingView(canvasView: $viewModel.canvasView,
                                   score: $viewModel.score,
@@ -76,7 +78,8 @@ struct ContentView: View {
                                   lastStrokeIndex: $viewModel.lastStrokeIndex,
                                   canUndo: $viewModel.canUndo,
                                   canRedo: $viewModel.canRedo,
-                                  onStrokeAdded: { viewModel.clearUndoStack() })
+                                  currentDrawingStrokes: $viewModel.currentDrawingStrokes,
+                                  onStrokeAdded: {})
                             .frame(width: canvasWidth, height: safeHeight)
                             .onAppear {
                                 viewModel.canvasSize = CGSize(width: canvasWidth, height: safeHeight)
@@ -96,7 +99,11 @@ struct ContentView: View {
                         HStack {
                             Spacer()
                             Button(action: {
-                                showCompletionAlert = true
+                                if viewModel.isLastImage {
+                                    showCompletionAlert = true
+                                } else {
+                                    viewModel.moveToNextImage()
+                                }
                             }) {
                                 ZStack {
                                     Circle()
@@ -127,7 +134,7 @@ struct ContentView: View {
                 }
                 Button("OK", role: .cancel) { }
             } message: {
-                Text("You have completed the test drawing!")
+                Text("You have completed all the drawings!")
             }
         }
         .edgesIgnoringSafeArea(.all)

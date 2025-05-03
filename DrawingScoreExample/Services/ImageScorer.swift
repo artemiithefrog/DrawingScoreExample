@@ -1,7 +1,7 @@
 import UIKit
 
 class ImageScorer {
-    static func generateReferenceImage(size: CGSize) -> UIImage {
+    static func generateReferenceImage(size: CGSize, imageName: String = "star.fill", offset: CGPoint = .zero) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1.0
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
@@ -11,14 +11,14 @@ class ImageScorer {
             ctx.setFillColor(UIColor.white.cgColor)
             ctx.fill(CGRect(origin: .zero, size: size))
             
-            let image = UIImage(systemName: "star.fill")!
+            let image = UIImage(systemName: imageName)!
                 .withTintColor(.black, renderingMode: .alwaysOriginal)
             
-            let starSize: CGFloat = 250
-            let originX = (size.width - starSize) / 2
-            let originY = (size.height - starSize) / 2
+            let imageSize: CGFloat = 250
+            let originX = (size.width - imageSize) / 2 + size.width * offset.x
+            let originY = (size.height - imageSize) / 2 + size.height * offset.y
 
-            image.draw(in: CGRect(x: originX, y: originY, width: starSize, height: starSize))
+            image.draw(in: CGRect(x: originX, y: originY, width: imageSize, height: imageSize))
         }
     }
 
@@ -109,8 +109,8 @@ class ImageScorer {
                         let g = data[pixelIndex + 1]
                         let b = data[pixelIndex + 2]
                         
-                        let threshold: UInt8 = 200
-                        let isBlack = r < threshold || g < threshold || b < threshold
+                        let threshold: UInt8 = 180
+                        let isBlack = r < threshold && g < threshold && b < threshold
                         
                         if isBlack {
                             mask[cy * width + cx] = true

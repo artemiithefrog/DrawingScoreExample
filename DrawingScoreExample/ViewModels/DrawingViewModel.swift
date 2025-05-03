@@ -1,5 +1,6 @@
 import SwiftUI
 import PencilKit
+import UIKit
 
 class DrawingViewModel: ObservableObject {
     @Published var canvasView = PKCanvasView()
@@ -13,17 +14,56 @@ class DrawingViewModel: ObservableObject {
     @Published var isShaking: Bool = false
     @Published var isFlashing: Bool = false
     @Published var showCompletionButton: Bool = false
+    @Published var currentImageIndex: Int = 0
+    @Published var completedDrawings: [PKDrawing] = []
+    @Published var currentDrawingStrokes: [PKStroke] = []
 
     @Published var canUndo: Bool = false
     @Published var canRedo: Bool = false
     private var undoStack: [PKStroke] = []
-    private var hasUndoneStrokes: Bool = false
     
     private var timer: Timer?
     private var lastUpdateTime: Date = Date()
     
+    let images = DrawingImage.defaultImages
+    
+    var currentImage: DrawingImage {
+        images[currentImageIndex]
+    }
+    
+    var isLastImage: Bool {
+        currentImageIndex == images.count - 1
+    }
+    
+    func moveToNextImage() {
+        if !isLastImage {
+            completedDrawings.append(PKDrawing(strokes: currentDrawingStrokes))
+            
+            var combinedDrawing = PKDrawing()
+            for drawing in completedDrawings {
+                combinedDrawing.append(drawing)
+            }
+            
+            currentImageIndex += 1
+            canvasView.drawing = combinedDrawing
+            currentDrawingStrokes = []
+            
+            score = 0
+            progressValue = 0
+            outsideProgressValue = 0
+            lastStrokeIndex = nil
+            showCompletionButton = false
+            isDrawing = false
+            timer?.invalidate()
+            timer = nil
+            
+            undoStack.removeAll()
+            updateButtonStates()
+        }
+    }
+    
     func calculateScore() {
-        guard !canvasView.drawing.strokes.isEmpty else {
+        guard !currentDrawingStrokes.isEmpty else {
             DispatchQueue.main.async {
                 self.score = 0
                 self.progressValue = 0
@@ -35,7 +75,8 @@ class DrawingViewModel: ObservableObject {
         let targetSize = canvasSize
         let scale = UIScreen.main.scale
 
-        let drawingImage = canvasView.drawing.image(from: CGRect(origin: .zero, size: targetSize), scale: scale)
+        let currentDrawing = PKDrawing(strokes: currentDrawingStrokes)
+        let drawingImage = currentDrawing.image(from: CGRect(origin: .zero, size: targetSize), scale: scale)
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1.0
@@ -53,7 +94,7 @@ class DrawingViewModel: ObservableObject {
             context.cgContext.setLineCap(.round)
             context.cgContext.setLineJoin(.round)
 
-            for stroke in canvasView.drawing.strokes {
+            for stroke in currentDrawingStrokes {
                 let path = UIBezierPath()
                 let points = stroke.path
                 if points.count > 0 {
@@ -67,7 +108,11 @@ class DrawingViewModel: ObservableObject {
             context.cgContext.strokePath()
         }
 
-        let referenceImage = ImageScorer.generateReferenceImage(size: targetSize)
+        let referenceImage = ImageScorer.generateReferenceImage(
+            size: targetSize,
+            imageName: currentImage.name,
+            offset: currentImage.offset
+        )
 
         let (insideScore, outsideScore) = ImageScorer.calculateCoverage(
             drawing: processedDrawingImage,
@@ -76,89 +121,60 @@ class DrawingViewModel: ObservableObject {
 
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.3)) {
-                if self.canvasView.drawing.strokes.count == 1 {
-                    if let firstStroke = self.canvasView.drawing.strokes.first {
-                        let points = firstStroke.path
-                        var isInsideTarget = false
-                        
-                        for point in points {
-                            let location = point.location
-                            let starSize: CGFloat = 250
-                            let originX = (targetSize.width - starSize) / 2
-                            let originY = (targetSize.height - starSize) / 2
-                            let targetRect = CGRect(x: originX, y: originY, width: starSize, height: starSize)
-                            
-                            if targetRect.contains(location) {
-                                isInsideTarget = true
-                                break
-                            }
+                var hasInsideStroke = false
+                let imageSize: CGFloat = 250
+                let originX = (targetSize.width - imageSize) / 2 + targetSize.width * self.currentImage.offset.x
+                let originY = (targetSize.height - imageSize) / 2 + targetSize.height * self.currentImage.offset.y
+                let targetRect = CGRect(x: originX, y: originY, width: imageSize, height: imageSize)
+                
+                for stroke in self.currentDrawingStrokes {
+                    let points = stroke.path
+                    for point in points {
+                        if targetRect.contains(point.location) {
+                            hasInsideStroke = true
+                            break
                         }
-                        
-                        if isInsideTarget {
-                            self.score = insideScore
-                            self.progressValue = insideScore / 100.0
-                            self.outsideProgressValue = 0
-                        } else {
-                            self.score = 0
-                            self.progressValue = 0
-                            self.outsideProgressValue = outsideScore / 100.0
+                    }
+                    if hasInsideStroke { break }
+                }
+                
+                if hasInsideStroke {
+                    self.score = insideScore
+                    self.progressValue = insideScore / 100.0
+                } else {
+                    self.score = 0
+                    self.progressValue = 0
+                }
+                
+                if outsideScore > 30, let index = self.lastStrokeIndex {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        self.isShaking = true
+                        self.isFlashing = true
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        if index < self.currentDrawingStrokes.count {
+                            self.currentDrawingStrokes.remove(at: index)
+                            var allStrokes = self.completedDrawings.flatMap { $0.strokes }
+                            allStrokes.append(contentsOf: self.currentDrawingStrokes)
+                            self.canvasView.drawing = PKDrawing(strokes: allStrokes)
+                            self.lastStrokeIndex = nil
+                            
+                            withAnimation(nil) {
+                                self.isShaking = false
+                                self.isFlashing = false
+                                self.outsideProgressValue = 0
+                            }
                         }
                     }
                 } else {
-                    var hasInsideStroke = false
-                    for stroke in self.canvasView.drawing.strokes {
-                        let points = stroke.path
-                        let starSize: CGFloat = 250
-                        let originX = (targetSize.width - starSize) / 2
-                        let originY = (targetSize.height - starSize) / 2
-                        let targetRect = CGRect(x: originX, y: originY, width: starSize, height: starSize)
-                        
-                        for point in points {
-                            if targetRect.contains(point.location) {
-                                hasInsideStroke = true
-                                break
-                            }
-                        }
-                        if hasInsideStroke { break }
-                    }
-                    
-                    if hasInsideStroke {
-                        self.score = insideScore
-                        self.progressValue = insideScore / 100.0
-                    } else {
-                        self.score = 0
-                        self.progressValue = 0
-                    }
-                    
-                    if outsideScore > 30, let index = self.lastStrokeIndex {
-                        withAnimation(.easeInOut(duration: 0.1)) {
-                            self.isShaking = true
-                            self.isFlashing = true
-                        }
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            var strokes = self.canvasView.drawing.strokes
-                            if index < strokes.count {
-                                strokes.remove(at: index)
-                                self.canvasView.drawing = PKDrawing(strokes: strokes)
-                                self.lastStrokeIndex = nil
-                                
-                                withAnimation(nil) {
-                                    self.isShaking = false
-                                    self.isFlashing = false
-                                    self.outsideProgressValue = 0
-                                }
-                            }
-                        }
-                    } else {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            self.outsideProgressValue = outsideScore / 100.0
-                        }
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        self.outsideProgressValue = outsideScore / 100.0
                     }
                 }
                 
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    self.showCompletionButton = insideScore >= 75
+                    self.showCompletionButton = insideScore >= 15
                 }
             }
         }
@@ -185,56 +201,43 @@ class DrawingViewModel: ObservableObject {
     }
     
     func undo() {
-        guard let lastStroke = canvasView.drawing.strokes.last else { return }
+        guard let lastStroke = currentDrawingStrokes.last else { return }
 
-        var strokes = canvasView.drawing.strokes
-        strokes.removeLast()
-        canvasView.drawing = PKDrawing(strokes: strokes)
+        currentDrawingStrokes.removeLast()
+        var allStrokes = completedDrawings.flatMap { $0.strokes }
+        allStrokes.append(contentsOf: currentDrawingStrokes)
+        canvasView.drawing = PKDrawing(strokes: allStrokes)
 
         undoStack.append(lastStroke)
-        hasUndoneStrokes = true
 
         updateButtonStates()
-
-        print("Undo: Removed stroke, stack size: \(undoStack.count)")
+        calculateScore()
     }
     
     func redo() {
         guard !undoStack.isEmpty else {
-            print("Redo: Stack is empty")
             updateButtonStates()
             return
         }
 
-        var strokes = canvasView.drawing.strokes
         let stroke = undoStack.removeLast()
-        strokes.append(stroke)
-
-        let wasUndoneStrokes = hasUndoneStrokes
-        hasUndoneStrokes = false
-        
-        canvasView.drawing = PKDrawing(strokes: strokes)
-
-        hasUndoneStrokes = wasUndoneStrokes
+        currentDrawingStrokes.append(stroke)
+        var allStrokes = completedDrawings.flatMap { $0.strokes }
+        allStrokes.append(contentsOf: currentDrawingStrokes)
+        canvasView.drawing = PKDrawing(strokes: allStrokes)
 
         updateButtonStates()
-
-        print("Redo: Added stroke back, remaining in stack: \(undoStack.count)")
-
         calculateScore()
     }
     
     func clearUndoStack() {
-        if hasUndoneStrokes {
-            print("Clearing undo stack, current size: \(undoStack.count)")
-            undoStack.removeAll()
-            hasUndoneStrokes = false
-            updateButtonStates()
-            print("Undo stack cleared")
-        }
+        undoStack.removeAll()
+        updateButtonStates()
     }
     
     func resetDrawing() {
+        completedDrawings.removeAll()
+        currentDrawingStrokes.removeAll()
         canvasView.drawing = PKDrawing()
         score = 0
         progressValue = 0
@@ -246,17 +249,13 @@ class DrawingViewModel: ObservableObject {
         timer = nil
 
         undoStack.removeAll()
-        hasUndoneStrokes = false
         updateButtonStates()
-        
-        print("Drawing reset, undo stack cleared")
     }
 
     private func updateButtonStates() {
         DispatchQueue.main.async {
-            self.canUndo = !self.canvasView.drawing.strokes.isEmpty
+            self.canUndo = !self.currentDrawingStrokes.isEmpty
             self.canRedo = !self.undoStack.isEmpty
-            print("Button states updated - canUndo: \(self.canUndo), canRedo: \(self.canRedo)")
         }
     }
 } 

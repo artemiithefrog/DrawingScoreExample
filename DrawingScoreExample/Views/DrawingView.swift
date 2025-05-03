@@ -9,6 +9,7 @@ struct DrawingView: UIViewRepresentable {
     @Binding var lastStrokeIndex: Int?
     @Binding var canUndo: Bool
     @Binding var canRedo: Bool
+    @Binding var currentDrawingStrokes: [PKStroke]
     var onStrokeAdded: () -> Void
     
     func makeUIView(context: Context) -> PKCanvasView {
@@ -45,7 +46,10 @@ struct DrawingView: UIViewRepresentable {
             if currentStrokeCount > lastStrokeCount {
                 parent.lastStrokeIndex = currentStrokeCount - 1
                 parent.canUndo = true
-                parent.onStrokeAdded()
+                if let newStroke = canvasView.drawing.strokes.last {
+                    parent.currentDrawingStrokes.append(newStroke)
+                    parent.onStrokeAdded()
+                }
             }
             
             lastStrokeCount = currentStrokeCount

@@ -24,6 +24,10 @@ class DrawingViewModel: ObservableObject {
     
     private var timer: Timer?
     private var lastUpdateTime: Date = Date()
+    private let updateInterval: TimeInterval = 0.5
+    
+    private var imageCache: [String: UIImage] = [:]
+    private let imageCacheQueue = DispatchQueue(label: "com.drawing.imageCache")
     
     let images = DrawingImage.defaultImages
     
@@ -108,11 +112,7 @@ class DrawingViewModel: ObservableObject {
             context.cgContext.strokePath()
         }
 
-        let referenceImage = ImageScorer.generateReferenceImage(
-            size: targetSize,
-            imageName: currentImage.name,
-            offset: currentImage.offset
-        )
+        let referenceImage = getReferenceImage(size: targetSize)
 
         let (insideScore, outsideScore) = ImageScorer.calculateCoverage(
             drawing: processedDrawingImage,
@@ -129,13 +129,10 @@ class DrawingViewModel: ObservableObject {
                 
                 for stroke in self.currentDrawingStrokes {
                     let points = stroke.path
-                    for point in points {
-                        if targetRect.contains(point.location) {
-                            hasInsideStroke = true
-                            break
-                        }
+                    if points.contains(where: { targetRect.contains($0.location) }) {
+                        hasInsideStroke = true
+                        break
                     }
-                    if hasInsideStroke { break }
                 }
                 
                 if hasInsideStroke {
@@ -179,13 +176,33 @@ class DrawingViewModel: ObservableObject {
             }
         }
     }
-    
+
+    private func getReferenceImage(size: CGSize) -> UIImage {
+        let cacheKey = "\(currentImage.name)_\(size.width)_\(size.height)"
+        
+        if let cachedImage = imageCache[cacheKey] {
+            return cachedImage
+        }
+        
+        let image = ImageScorer.generateReferenceImage(
+            size: size,
+            imageName: currentImage.name,
+            offset: currentImage.offset
+        )
+        
+        imageCacheQueue.async {
+            self.imageCache[cacheKey] = image
+        }
+        
+        return image
+    }
+
     func startDrawing() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             let now = Date()
-            if now.timeIntervalSince(self.lastUpdateTime) >= 0.5 {
+            if now.timeIntervalSince(self.lastUpdateTime) >= self.updateInterval {
                 DispatchQueue.main.async {
                     self.calculateScore()
                     self.lastUpdateTime = now
@@ -250,6 +267,10 @@ class DrawingViewModel: ObservableObject {
 
         undoStack.removeAll()
         updateButtonStates()
+        
+        imageCacheQueue.async {
+            self.imageCache.removeAll()
+        }
     }
 
     private func updateButtonStates() {

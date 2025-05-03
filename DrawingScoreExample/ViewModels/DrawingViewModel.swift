@@ -265,15 +265,23 @@ class DrawingViewModel: ObservableObject {
     }
     
     func resetDrawing() {
+        currentImageIndex = 0
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            score = 0
+            progressValue = 0
+            outsideProgressValue = 0
+            showCompletionButton = false
+            isDrawing = false
+            isShaking = false
+            isFlashing = false
+        }
+        
         completedDrawings.removeAll()
         currentDrawingStrokes.removeAll()
         canvasView.drawing = PKDrawing()
-        score = 0
-        progressValue = 0
-        outsideProgressValue = 0
         lastStrokeIndex = nil
-        showCompletionButton = false
-        isDrawing = false
+        
         timer?.invalidate()
         timer = nil
 
@@ -282,6 +290,10 @@ class DrawingViewModel: ObservableObject {
         
         imageCacheQueue.async {
             self.imageCache.removeAll()
+        }
+        
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
         }
     }
 

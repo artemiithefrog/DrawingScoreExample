@@ -41,7 +41,18 @@ class DrawingViewModel: ObservableObject {
     
     func moveToNextImage() {
         if !isLastImage {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showCompletionButton = false
+                score = 0
+                progressValue = 0
+                outsideProgressValue = 0
+                isDrawing = false
+                isShaking = false
+                isFlashing = false
+            }
+            
             completedDrawings.append(PKDrawing(strokes: currentDrawingStrokes))
+            currentDrawingStrokes = []
             
             var combinedDrawing = PKDrawing()
             for drawing in completedDrawings {
@@ -50,28 +61,29 @@ class DrawingViewModel: ObservableObject {
             
             currentImageIndex += 1
             canvasView.drawing = combinedDrawing
-            currentDrawingStrokes = []
-            
-            score = 0
-            progressValue = 0
-            outsideProgressValue = 0
             lastStrokeIndex = nil
-            showCompletionButton = false
-            isDrawing = false
+            
             timer?.invalidate()
             timer = nil
             
             undoStack.removeAll()
             updateButtonStates()
+            
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+            }
         }
     }
     
     func calculateScore() {
         guard !currentDrawingStrokes.isEmpty else {
             DispatchQueue.main.async {
-                self.score = 0
-                self.progressValue = 0
-                self.outsideProgressValue = 0
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.score = 0
+                    self.progressValue = 0
+                    self.outsideProgressValue = 0
+                    self.showCompletionButton = false
+                }
             }
             return
         }

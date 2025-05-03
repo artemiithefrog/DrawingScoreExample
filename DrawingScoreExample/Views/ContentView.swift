@@ -79,7 +79,7 @@ struct ContentView: View {
                                   canUndo: $viewModel.canUndo,
                                   canRedo: $viewModel.canRedo,
                                   currentDrawingStrokes: $viewModel.currentDrawingStrokes,
-                                  onStrokeAdded: {})
+                                  onStrokeAdded: { viewModel.clearUndoStack() })
                             .frame(width: canvasWidth, height: safeHeight)
                             .onAppear {
                                 viewModel.canvasSize = CGSize(width: canvasWidth, height: safeHeight)

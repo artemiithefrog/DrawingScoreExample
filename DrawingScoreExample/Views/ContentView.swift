@@ -63,57 +63,70 @@ struct ContentView: View {
                             Spacer()
                         }
 
-                        ForEach(Array(viewModel.completedCanvasViews.enumerated()), id: \.offset) { index, canvas in
-                            DrawingView(canvasView: .constant(canvas),
-                                      score: .constant(0),
-                                      isDrawing: .constant(false),
-                                      brushWidth: .constant(10),
-                                      lastStrokeIndex: .constant(nil),
-                                      canUndo: .constant(false),
-                                      canRedo: .constant(false),
-                                      currentDrawingStrokes: .constant([]),
-                                      currentImage: viewModel.images[index],
-                                      onStrokeAdded: {})
+                        if viewModel.currentImageIndex == 0 {
+                            ForEach(Array(viewModel.images.enumerated().dropFirst()), id: \.offset) { index, image in
+                                Image(systemName: image.name)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: image.size, height: image.size)
+                                    .foregroundColor(Color(hex: image.color))
+                                    .rotationEffect(.degrees(image.rotation))
+                                    .offset(x: canvasWidth * image.offset.x,
+                                           y: safeHeight * image.offset.y)
+                            }
+                        } else {
+                            ForEach(Array(viewModel.completedCanvasViews.enumerated()), id: \.offset) { index, canvas in
+                                DrawingView(canvasView: .constant(canvas),
+                                          score: .constant(0),
+                                          isDrawing: .constant(false),
+                                          brushWidth: .constant(10),
+                                          lastStrokeIndex: .constant(nil),
+                                          canUndo: .constant(false),
+                                          canRedo: .constant(false),
+                                          currentDrawingStrokes: .constant([]),
+                                          currentImage: viewModel.images[index + 1],
+                                          onStrokeAdded: {})
+                                    .frame(width: canvasWidth, height: safeHeight)
+                                    .allowsHitTesting(false)
+                            }
+
+                            Image(systemName: viewModel.currentImage.name)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: viewModel.currentImage.size, height: viewModel.currentImage.size)
+                                .foregroundColor(.blue)
+                                .rotationEffect(.degrees(viewModel.currentImage.rotation))
+                                .offset(x: canvasWidth * viewModel.currentImage.offset.x,
+                                       y: safeHeight * viewModel.currentImage.offset.y)
+                                .zIndex(1)
+
+                            DrawingView(canvasView: $viewModel.canvasView,
+                                      score: $viewModel.score,
+                                      isDrawing: $viewModel.isDrawing,
+                                      brushWidth: $viewModel.brushWidth,
+                                      lastStrokeIndex: $viewModel.lastStrokeIndex,
+                                      canUndo: $viewModel.canUndo,
+                                      canRedo: $viewModel.canRedo,
+                                      currentDrawingStrokes: $viewModel.currentDrawingStrokes,
+                                      currentImage: viewModel.currentImage,
+                                      onStrokeAdded: { viewModel.clearUndoStack() })
                                 .frame(width: canvasWidth, height: safeHeight)
-                                .allowsHitTesting(false)
-                        }
-
-                        Image(systemName: viewModel.currentImage.name)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: viewModel.currentImage.size, height: viewModel.currentImage.size)
-                            .foregroundColor(.blue)
-                            .rotationEffect(.degrees(viewModel.currentImage.rotation))
-                            .offset(x: canvasWidth * viewModel.currentImage.offset.x,
-                                   y: safeHeight * viewModel.currentImage.offset.y)
-                            .zIndex(1)
-
-                        DrawingView(canvasView: $viewModel.canvasView,
-                                  score: $viewModel.score,
-                                  isDrawing: $viewModel.isDrawing,
-                                  brushWidth: $viewModel.brushWidth,
-                                  lastStrokeIndex: $viewModel.lastStrokeIndex,
-                                  canUndo: $viewModel.canUndo,
-                                  canRedo: $viewModel.canRedo,
-                                  currentDrawingStrokes: $viewModel.currentDrawingStrokes,
-                                  currentImage: viewModel.currentImage,
-                                  onStrokeAdded: { viewModel.clearUndoStack() })
-                            .frame(width: canvasWidth, height: safeHeight)
-                            .onAppear {
-                                viewModel.canvasSize = CGSize(width: canvasWidth, height: safeHeight)
-                            }
-                            .onChange(of: viewModel.isDrawing) { newValue in
-                                if newValue {
-                                    viewModel.startDrawing()
-                                } else {
-                                    viewModel.stopDrawing()
+                                .onAppear {
+                                    viewModel.canvasSize = CGSize(width: canvasWidth, height: safeHeight)
                                 }
-                            }
-                            .zIndex(2)
+                                .onChange(of: viewModel.isDrawing) { newValue in
+                                    if newValue {
+                                        viewModel.startDrawing()
+                                    } else {
+                                        viewModel.stopDrawing()
+                                    }
+                                }
+                                .zIndex(2)
+                        }
                     }
                 }
                 
-                if viewModel.showCompletionButton {
+                if viewModel.currentImageIndex == 0 || viewModel.showCompletionButton {
                     VStack {
                         HStack {
                             Spacer()

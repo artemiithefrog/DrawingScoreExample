@@ -5,11 +5,12 @@ struct DrawingImage: Identifiable {
     let name: String
     let offset: CGPoint
     let color: String
+    let size: CGFloat
     
     static let defaultImages: [DrawingImage] = [
 //        DrawingImage(name: "plus", offset: CGPoint(x: -0.1, y: -0.1)),
-        DrawingImage(name: "circle.fill", offset: CGPoint(x: 0.1, y: -0.1), color: "#FF0000"),
-        DrawingImage(name: "star.fill", offset: CGPoint(x: -0.1, y: 0.1), color: "#00FF00"),
-        DrawingImage(name: "arrow.right", offset: CGPoint(x: 0.1, y: 0.1), color: "#0000FF")
+        DrawingImage(name: "circle.fill", offset: CGPoint(x: 0.1, y: -0.1), color: "#FF0000", size: 50),
+        DrawingImage(name: "star.fill", offset: CGPoint(x: -0.1, y: 0.1), color: "#00FF00", size: 250),
+        DrawingImage(name: "arrow.right", offset: CGPoint(x: 0.1, y: 0.1), color: "#0000FF", size: 250)
     ]
 } 

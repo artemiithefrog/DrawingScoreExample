@@ -66,7 +66,7 @@ struct ContentView: View {
                         Image(systemName: viewModel.currentImage.name)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 250, height: 250)
+                            .frame(width: viewModel.currentImage.size, height: viewModel.currentImage.size)
                             .foregroundColor(.blue)
                             .offset(x: canvasWidth * viewModel.currentImage.offset.x,
                                    y: safeHeight * viewModel.currentImage.offset.y)

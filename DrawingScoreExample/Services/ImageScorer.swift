@@ -1,7 +1,7 @@
 import UIKit
 
 class ImageScorer {
-    static func generateReferenceImage(size: CGSize, imageName: String = "star.fill", offset: CGPoint = .zero) -> UIImage {
+    static func generateReferenceImage(size: CGSize, imageName: String = "star.fill", offset: CGPoint = .zero, imageSize: CGFloat = 250) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1.0
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
@@ -14,7 +14,6 @@ class ImageScorer {
             let image = UIImage(systemName: imageName)!
                 .withTintColor(.black, renderingMode: .alwaysOriginal)
             
-            let imageSize: CGFloat = 250
             let originX = (size.width - imageSize) / 2 + size.width * offset.x
             let originY = (size.height - imageSize) / 2 + size.height * offset.y
 

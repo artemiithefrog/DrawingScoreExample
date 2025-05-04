@@ -136,7 +136,7 @@ class DrawingViewModel: ObservableObject {
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.3)) {
                 var hasInsideStroke = false
-                let imageSize: CGFloat = 250
+                let imageSize = self.currentImage.size
                 let originX = (targetSize.width - imageSize) / 2 + targetSize.width * self.currentImage.offset.x
                 let originY = (targetSize.height - imageSize) / 2 + targetSize.height * self.currentImage.offset.y
                 let targetRect = CGRect(x: originX, y: originY, width: imageSize, height: imageSize)
@@ -158,7 +158,6 @@ class DrawingViewModel: ObservableObject {
                 }
                 
                 if outsideScore > 30 && !self.isRemovingStroke {
-                    
                     withAnimation(.easeInOut(duration: 0.1)) {
                         self.isShaking = true
                         self.isFlashing = true
@@ -167,11 +166,9 @@ class DrawingViewModel: ObservableObject {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         if !self.currentDrawingStrokes.isEmpty && !self.isRemovingStroke {
                             self.isRemovingStroke = true
-
                             let lastCount = self.currentDrawingStrokes.count
-
                             self.currentDrawingStrokes.removeLast()
-
+                            
                             if self.currentDrawingStrokes.count == lastCount - 1 {
                                 var allStrokes = self.completedDrawings.flatMap { $0.strokes }
                                 allStrokes.append(contentsOf: self.currentDrawingStrokes)
@@ -183,7 +180,7 @@ class DrawingViewModel: ObservableObject {
                                 self.isFlashing = false
                                 self.outsideProgressValue = 0
                             }
-
+                            
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                 self.isRemovingStroke = false
                             }
@@ -203,7 +200,7 @@ class DrawingViewModel: ObservableObject {
     }
 
     private func getReferenceImage(size: CGSize) -> UIImage {
-        let cacheKey = "\(currentImage.name)_\(size.width)_\(size.height)"
+        let cacheKey = "\(currentImage.name)_\(size.width)_\(size.height)_\(currentImage.size)"
         
         if let cachedImage = imageCache[cacheKey] {
             return cachedImage
@@ -212,7 +209,8 @@ class DrawingViewModel: ObservableObject {
         let image = ImageScorer.generateReferenceImage(
             size: size,
             imageName: currentImage.name,
-            offset: currentImage.offset
+            offset: currentImage.offset,
+            imageSize: currentImage.size
         )
         
         imageCacheQueue.async {

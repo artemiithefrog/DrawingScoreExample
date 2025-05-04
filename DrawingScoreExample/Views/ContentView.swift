@@ -63,6 +63,21 @@ struct ContentView: View {
                             Spacer()
                         }
 
+                        ForEach(Array(viewModel.completedCanvasViews.enumerated()), id: \.offset) { index, canvas in
+                            DrawingView(canvasView: .constant(canvas),
+                                      score: .constant(0),
+                                      isDrawing: .constant(false),
+                                      brushWidth: .constant(10),
+                                      lastStrokeIndex: .constant(nil),
+                                      canUndo: .constant(false),
+                                      canRedo: .constant(false),
+                                      currentDrawingStrokes: .constant([]),
+                                      currentImage: viewModel.images[index],
+                                      onStrokeAdded: {})
+                                .frame(width: canvasWidth, height: safeHeight)
+                                .allowsHitTesting(false)
+                        }
+
                         Image(systemName: viewModel.currentImage.name)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -71,6 +86,7 @@ struct ContentView: View {
                             .rotationEffect(.degrees(viewModel.currentImage.rotation))
                             .offset(x: canvasWidth * viewModel.currentImage.offset.x,
                                    y: safeHeight * viewModel.currentImage.offset.y)
+                            .zIndex(1)
 
                         DrawingView(canvasView: $viewModel.canvasView,
                                   score: $viewModel.score,
@@ -93,6 +109,7 @@ struct ContentView: View {
                                     viewModel.stopDrawing()
                                 }
                             }
+                            .zIndex(2)
                     }
                 }
                 

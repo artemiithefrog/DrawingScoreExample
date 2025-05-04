@@ -16,6 +16,7 @@ class DrawingViewModel: ObservableObject {
     @Published var showCompletionButton: Bool = false
     @Published var currentImageIndex: Int = 0
     @Published var completedDrawings: [PKDrawing] = []
+    @Published var completedCanvasViews: [PKCanvasView] = []
     @Published var currentDrawingStrokes: [PKStroke] = []
 
     @Published var canUndo: Bool = false
@@ -53,21 +54,19 @@ class DrawingViewModel: ObservableObject {
                 isFlashing = false
             }
             
-            completedDrawings.append(PKDrawing(strokes: currentDrawingStrokes))
-            currentDrawingStrokes = []
+            let currentDrawing = PKDrawing(strokes: currentDrawingStrokes)
+            completedDrawings.append(currentDrawing)
+            let canvas = PKCanvasView()
+            canvas.drawing = currentDrawing
+            completedCanvasViews.append(canvas)
             
-            var combinedDrawing = PKDrawing()
-            for drawing in completedDrawings {
-                combinedDrawing.append(drawing)
-            }
+            currentDrawingStrokes = []
+            canvasView.drawing = PKDrawing()
             
             currentImageIndex += 1
-            canvasView.drawing = combinedDrawing
             lastStrokeIndex = nil
-            
             timer?.invalidate()
             timer = nil
-            
             undoStack.removeAll()
             updateButtonStates()
             
@@ -170,9 +169,7 @@ class DrawingViewModel: ObservableObject {
                             self.currentDrawingStrokes.removeLast()
                             
                             if self.currentDrawingStrokes.count == lastCount - 1 {
-                                var allStrokes = self.completedDrawings.flatMap { $0.strokes }
-                                allStrokes.append(contentsOf: self.currentDrawingStrokes)
-                                self.canvasView.drawing = PKDrawing(strokes: allStrokes)
+                                self.canvasView.drawing = PKDrawing(strokes: self.currentDrawingStrokes)
                             }
                             
                             withAnimation(nil) {
@@ -294,6 +291,7 @@ class DrawingViewModel: ObservableObject {
         }
         
         completedDrawings.removeAll()
+        completedCanvasViews.removeAll()
         currentDrawingStrokes.removeAll()
         canvasView.drawing = PKDrawing()
         lastStrokeIndex = nil

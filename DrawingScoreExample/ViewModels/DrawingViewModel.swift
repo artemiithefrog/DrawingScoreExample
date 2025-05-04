@@ -25,7 +25,8 @@ class DrawingViewModel: ObservableObject {
     
     private var timer: Timer?
     private var lastUpdateTime: Date = Date()
-    private let updateInterval: TimeInterval = 0.5
+    private let updateInterval: TimeInterval = 0.3
+    private var lastStrokeCount: Int = 0
     
     private var imageCache: [String: UIImage] = [:]
     private let imageCacheQueue = DispatchQueue(label: "com.drawing.imageCache")
@@ -227,9 +228,13 @@ class DrawingViewModel: ObservableObject {
             guard let self = self else { return }
             let now = Date()
             if now.timeIntervalSince(self.lastUpdateTime) >= self.updateInterval {
-                DispatchQueue.main.async {
-                    self.calculateScore()
-                    self.lastUpdateTime = now
+                let currentStrokeCount = self.currentDrawingStrokes.count
+                if currentStrokeCount != self.lastStrokeCount {
+                    DispatchQueue.main.async {
+                        self.calculateScore()
+                        self.lastUpdateTime = now
+                        self.lastStrokeCount = currentStrokeCount
+                    }
                 }
             }
         }

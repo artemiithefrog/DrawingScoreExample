@@ -20,6 +20,7 @@ class DrawingViewModel: ObservableObject {
 
     @Published var canUndo: Bool = false
     @Published var canRedo: Bool = false
+    private var isRemovingStroke: Bool = false
     private var undoStack: [PKStroke] = []
     
     private var timer: Timer?
@@ -155,24 +156,35 @@ class DrawingViewModel: ObservableObject {
                     self.progressValue = 0
                 }
                 
-                if outsideScore > 30, let index = self.lastStrokeIndex {
+                if outsideScore > 30 && !self.isRemovingStroke {
+                    
                     withAnimation(.easeInOut(duration: 0.1)) {
                         self.isShaking = true
                         self.isFlashing = true
                     }
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        if index < self.currentDrawingStrokes.count {
-                            self.currentDrawingStrokes.remove(at: index)
-                            var allStrokes = self.completedDrawings.flatMap { $0.strokes }
-                            allStrokes.append(contentsOf: self.currentDrawingStrokes)
-                            self.canvasView.drawing = PKDrawing(strokes: allStrokes)
-                            self.lastStrokeIndex = nil
+                        if !self.currentDrawingStrokes.isEmpty && !self.isRemovingStroke {
+                            self.isRemovingStroke = true
+
+                            let lastCount = self.currentDrawingStrokes.count
+
+                            self.currentDrawingStrokes.removeLast()
+
+                            if self.currentDrawingStrokes.count == lastCount - 1 {
+                                var allStrokes = self.completedDrawings.flatMap { $0.strokes }
+                                allStrokes.append(contentsOf: self.currentDrawingStrokes)
+                                self.canvasView.drawing = PKDrawing(strokes: allStrokes)
+                            }
                             
                             withAnimation(nil) {
                                 self.isShaking = false
                                 self.isFlashing = false
                                 self.outsideProgressValue = 0
+                            }
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                self.isRemovingStroke = false
                             }
                         }
                     }

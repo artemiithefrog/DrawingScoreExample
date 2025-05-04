@@ -200,7 +200,7 @@ class DrawingViewModel: ObservableObject {
     }
 
     private func getReferenceImage(size: CGSize) -> UIImage {
-        let cacheKey = "\(currentImage.name)_\(size.width)_\(size.height)_\(currentImage.size)"
+        let cacheKey = "\(currentImage.name)_\(size.width)_\(size.height)_\(currentImage.size)_\(currentImage.rotation)"
         
         if let cachedImage = imageCache[cacheKey] {
             return cachedImage
@@ -210,7 +210,8 @@ class DrawingViewModel: ObservableObject {
             size: size,
             imageName: currentImage.name,
             offset: currentImage.offset,
-            imageSize: currentImage.size
+            imageSize: currentImage.size,
+            rotation: currentImage.rotation
         )
         
         imageCacheQueue.async {

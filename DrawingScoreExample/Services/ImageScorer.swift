@@ -1,7 +1,7 @@
 import UIKit
 
 class ImageScorer {
-    static func generateReferenceImage(size: CGSize, imageName: String = "star.fill", offset: CGPoint = .zero, imageSize: CGFloat = 250) -> UIImage {
+    static func generateReferenceImage(size: CGSize, imageName: String = "star.fill", offset: CGPoint = .zero, imageSize: CGFloat = 250, rotation: Double = 0) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1.0
         let renderer = UIGraphicsImageRenderer(size: size, format: format)
@@ -16,8 +16,17 @@ class ImageScorer {
             
             let originX = (size.width - imageSize) / 2 + size.width * offset.x
             let originY = (size.height - imageSize) / 2 + size.height * offset.y
+            let rect = CGRect(x: originX, y: originY, width: imageSize, height: imageSize)
 
-            image.draw(in: CGRect(x: originX, y: originY, width: imageSize, height: imageSize))
+            ctx.saveGState()
+
+            ctx.translateBy(x: rect.midX, y: rect.midY)
+
+            ctx.rotate(by: CGFloat(rotation * .pi / 180))
+
+            image.draw(in: CGRect(x: -imageSize/2, y: -imageSize/2, width: imageSize, height: imageSize))
+
+            ctx.restoreGState()
         }
     }
 

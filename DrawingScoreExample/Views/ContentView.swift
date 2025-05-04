@@ -68,6 +68,7 @@ struct ContentView: View {
                             .aspectRatio(contentMode: .fit)
                             .frame(width: viewModel.currentImage.size, height: viewModel.currentImage.size)
                             .foregroundColor(.blue)
+                            .rotationEffect(.degrees(viewModel.currentImage.rotation))
                             .offset(x: canvasWidth * viewModel.currentImage.offset.x,
                                    y: safeHeight * viewModel.currentImage.offset.y)
 

@@ -10,11 +10,13 @@ struct DrawingView: UIViewRepresentable {
     @Binding var canUndo: Bool
     @Binding var canRedo: Bool
     @Binding var currentDrawingStrokes: [PKStroke]
+    let currentImage: DrawingImage
     var onStrokeAdded: () -> Void
     
     func makeUIView(context: Context) -> PKCanvasView {
         canvasView.drawingPolicy = .anyInput
-        canvasView.tool = PKInkingTool(.pen, color: .black, width: brushWidth)
+        let color = UIColor(Color(hex: currentImage.color))
+        canvasView.tool = PKInkingTool(.pen, color: color, width: brushWidth)
         canvasView.delegate = context.coordinator
         canvasView.backgroundColor = .clear
         canvasView.isOpaque = false
@@ -24,7 +26,8 @@ struct DrawingView: UIViewRepresentable {
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         uiView.backgroundColor = .clear
         uiView.isOpaque = false
-        uiView.tool = PKInkingTool(.pen, color: .black, width: brushWidth)
+        let color = UIColor(Color(hex: currentImage.color))
+        uiView.tool = PKInkingTool(.pen, color: color, width: brushWidth)
     }
     
     func makeCoordinator() -> Coordinator {

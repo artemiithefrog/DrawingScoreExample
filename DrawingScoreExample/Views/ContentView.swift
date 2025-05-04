@@ -79,6 +79,7 @@ struct ContentView: View {
                                   canUndo: $viewModel.canUndo,
                                   canRedo: $viewModel.canRedo,
                                   currentDrawingStrokes: $viewModel.currentDrawingStrokes,
+                                  currentImage: viewModel.currentImage,
                                   onStrokeAdded: { viewModel.clearUndoStack() })
                             .frame(width: canvasWidth, height: safeHeight)
                             .onAppear {

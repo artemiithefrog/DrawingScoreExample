@@ -41,6 +41,7 @@ struct ContentView: View {
                         Slider(value: $viewModel.brushWidth, in: 1...20, step: 1)
                             .rotationEffect(.degrees(-90))
                             .frame(width: 200)
+                            .opacity(viewModel.currentImageIndex == 0 ? 0 : 1)
                         
                         Spacer()
                     }
@@ -52,17 +53,19 @@ struct ContentView: View {
                             .frame(width: canvasWidth, height: safeHeight)
                             .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
 
-                        VStack {
-                            VStack(spacing: 8) {
-                                CustomProgressBar(insideProgress: viewModel.progressValue, 
-                                                outsideProgress: viewModel.outsideProgressValue,
-                                                isShaking: viewModel.isShaking,
-                                                isFlashing: viewModel.isFlashing)
-                                    .frame(width: canvasWidth - horizontalPadding * 2, height: 8)
+                        if viewModel.currentImageIndex != 0 {
+                            VStack {
+                                VStack(spacing: 8) {
+                                    CustomProgressBar(insideProgress: viewModel.progressValue, 
+                                                    outsideProgress: viewModel.outsideProgressValue,
+                                                    isShaking: viewModel.isShaking,
+                                                    isFlashing: viewModel.isFlashing)
+                                        .frame(width: canvasWidth - horizontalPadding * 2, height: 8)
+                                }
+                                .padding(.top, 20)
+                                
+                                Spacer()
                             }
-                            .padding(.top, 20)
-                            
-                            Spacer()
                         }
 
                         if viewModel.currentImageIndex == 0 {

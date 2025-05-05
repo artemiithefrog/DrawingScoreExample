@@ -26,13 +26,15 @@ struct ContentView: View {
 
                 HStack(spacing: 20) {
                     VStack {
-                        UndoRedoButtons(
-                            canUndo: viewModel.canUndo,
-                            canRedo: viewModel.canRedo,
-                            onUndo: { viewModel.undo() },
-                            onRedo: { viewModel.redo() }
-                        )
-                        .padding(.top, 20)
+                        if viewModel.currentImageIndex != 0 {
+                            UndoRedoButtons(
+                                canUndo: viewModel.canUndo,
+                                canRedo: viewModel.canRedo,
+                                onUndo: { viewModel.undo() },
+                                onRedo: { viewModel.redo() }
+                            )
+                            .padding(.top, 20)
+                        }
                         
                         Spacer()
                         
